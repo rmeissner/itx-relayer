@@ -8,8 +8,8 @@ contract GasTank {
     bytes4 public immutable method;
 
     struct Account {
-        uint128 deposit;
-        uint128 used;
+        uint256 deposit;
+        uint256 used;
     }
 
     mapping(address => Account) public accounts;
@@ -21,8 +21,8 @@ contract GasTank {
     }
 
     receive() payable external {
-        require(msg.value < uint128(0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF));
-        accounts[msg.sender].deposit += uint128(msg.value);
+        accounts[msg.sender].deposit += msg.value;
+        accounts[msg.sender].used += 1;
     }
     
     function changeOwner(address newOwner) external {
@@ -47,9 +47,9 @@ contract GasTank {
         Account memory userAccount = accounts[target];
         uint256 additionalGas = 20000 + (40 + functionData.length) * 14;
         uint256 gasPrice = tx.gasprice + fee;
-        uint256 newUsed = userAccount.used + (gasleft() + additionalGas) * gasPrice;
-        require(newUsed <= userAccount.deposit, "Insufficient funds");
-        accounts[target].used = uint128(newUsed);
+        require(userAccount.used != uint256(int256(-1)),"Already in use");
+        accounts[target].used = uint256(int256(-1));
+        uint256 startGas = gasleft();
         // The method id is appended by the contract to avoid that another method is called
         bytes memory data = abi.encodePacked(method, functionData);
         bool success;
@@ -58,6 +58,8 @@ contract GasTank {
             success := call(sub(gas(), 12000), target, 0, add(data, 0x20), mload(data), 0, 0)
         }
         require(success, "Could not successfully call target");
-        accounts[target].used -= uint128(gasleft() * gasPrice);
+        uint256 newUsed = userAccount.used + (startGas - gasleft() + additionalGas) * gasPrice;
+        require(newUsed <= userAccount.deposit, "Insufficient funds");
+        accounts[target].used = newUsed;
     }
 }
