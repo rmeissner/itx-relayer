@@ -1,0 +1,41 @@
+{
+  "language": "Solidity",
+  "sources": {
+    "contracts/interfaces/Realitio.sol": {
+      "content": "// SPDX-License-Identifier: LGPL-3.0-only\npragma solidity ^0.8.0;\n\ninterface Token {\n    function transferFrom(address from, address to, uint256 value) external returns(bool);\n    function transfer(address to, uint256 value) external returns(bool);\n    function balanceOf(address holder) external returns(uint256);\n}"
+    },
+    "contracts/Refunder.sol": {
+      "content": "// SPDX-License-Identifier: LGPL-3.0-only\npragma solidity ^0.8.0;\n\ninterface Token {\n    function transferFrom(address from, address to, uint256 value) external returns(bool);\n    function transfer(address to, uint256 value) external returns(bool);\n    function balanceOf(address holder) external returns(uint256);\n}\n\ncontract Refunder {\n    \n    address public owner;\n    Token public immutable token;\n    uint256 public immutable fee;\n    bytes4 public immutable method;\n    \n    constructor(Token _token, address _owner, uint256 _fee, bytes4 _method) {\n        token = _token;\n        owner = _owner;\n        fee = _fee;\n        method = _method;\n    }\n    \n    function changeOwner(address newOwner) external {\n        require(msg.sender == owner, \"Not Authorized\");\n        owner = newOwner;\n    }\n    \n    function withdrawTokensTo(Token withdrawToken, address target) external {\n        require(msg.sender == owner, \"Not Authorized\");\n        if (address(withdrawToken) == address(0)) {\n            target.call{ value: address(this).balance }(\"\");\n        } else {\n            withdrawToken.transfer(target, withdrawToken.balanceOf(address(this)));\n        }\n    }\n    \n    function execute(address target, bytes calldata functionData) external {\n        // 9k are for the token transfers + 21k base + data (8 bytes method + 32 bytes address + data)\n        // We will use 14 as the gas price per data byte, to avoid overcharging too much\n        uint256 additionalGas = 30000 + (40 + functionData.length) * 14;\n        uint256 gasPrice = tx.gasprice + fee;\n        require(token.transferFrom(target, address(this), (gasleft() + additionalGas) * gasPrice), \"Could not aquire tokens\");\n        // The method id is appended by the contract to avoid that another method is called\n        bytes memory data = abi.encodePacked(method, functionData);\n        bool success;\n        // Assembly reduced the costs by 400 gas\n        assembly {\n            success := call(sub(gas(), 12000), target, 0, add(data, 0x20), mload(data), 0, 0)\n        }\n        require(success, \"Could not successfully call target\");\n        require(token.transfer(target, (gasleft()) * gasPrice), \"Could not refund unused gas\");\n    } \n    \n    function executeTrusted(address target, bytes calldata functionData) external {\n        // 9k are for the token transfers + 21k base + data (8 bytes method + 32 bytes address + data)\n        // We will use 14 as the gas price per data byte, to avoid overcharging too much\n        uint256 additionalGas = 30000 + (40 + functionData.length) * 14;\n        uint256 gasPrice = tx.gasprice + fee;\n        uint256 gasStart = gasleft();\n        // The method id is appended by the contract to avoid that another method is called\n        bytes memory data = abi.encodePacked(method, functionData);\n        bool success;\n        // Assembly reduced the costs by 400 gas\n        assembly {\n            success := call(sub(gas(), 12000), target, 0, add(data, 0x20), mload(data), 0, 0)\n        }\n        require(success, \"Could not successfully call target\");\n        require(token.transferFrom(target, address(this), (gasStart + additionalGas - gasleft()) * gasPrice), \"Could not pay gas\");\n    } \n}"
+    },
+    "contracts/test/TestExecutor.sol": {
+      "content": "// SPDX-License-Identifier: LGPL-3.0-only\npragma solidity >=0.8.0;\n\ncontract TestExecutor {\n    address public module;\n\n    receive() external payable {}\n\n    function setModule(address _module) external {\n        module = _module;\n    }\n\n    function exec(address payable to, uint256 value, bytes calldata data) external {\n        bool success;\n        bytes memory response;\n        (success,response) = to.call{value: value}(data);\n        if(!success) {\n            assembly {\n                revert(add(response, 0x20), mload(response))\n            }\n        }\n    }\n\n    function execTransactionFromModule(address payable to, uint256 value, bytes calldata data, uint8 operation)\n        external\n        returns (bool success)\n    {\n        require(msg.sender == module, \"Not authorized\");\n        if (operation == 1)\n            (success,) = to.delegatecall(data);\n        else\n            (success,) = to.call{value: value}(data);\n    }\n}"
+    }
+  },
+  "settings": {
+    "optimizer": {
+      "enabled": false,
+      "runs": 200
+    },
+    "outputSelection": {
+      "*": {
+        "*": [
+          "abi",
+          "evm.bytecode",
+          "evm.deployedBytecode",
+          "evm.methodIdentifiers",
+          "metadata",
+          "devdoc",
+          "userdoc",
+          "storageLayout",
+          "evm.gasEstimates"
+        ],
+        "": [
+          "ast"
+        ]
+      }
+    },
+    "metadata": {
+      "useLiteralContent": true
+    }
+  }
+}

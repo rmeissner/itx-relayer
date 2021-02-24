@@ -2,7 +2,7 @@ import "hardhat-deploy";
 import "@nomiclabs/hardhat-ethers";
 import { task, types } from "hardhat/config";
 
-task("setup", "Setups the reunder contract")
+task("setup", "Setups the refunder contract")
     .addParam("token", "Token that should be used by the Refunder contract", undefined, types.string)
     .addParam("owner", "Owner that can withdraw the gathered fees", undefined, types.string, true)
     .addParam("fee", "Timeout in seconds that should be required for the oracle", "21000000000", types.string, true)

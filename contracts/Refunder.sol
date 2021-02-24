@@ -46,9 +46,26 @@ contract Refunder {
         bool success;
         // Assembly reduced the costs by 400 gas
         assembly {
-            success := call(gas(), target, 0, add(data, 0x20), mload(data), 0, 0)
+            success := call(sub(gas(), 12000), target, 0, add(data, 0x20), mload(data), 0, 0)
         }
         require(success, "Could not successfully call target");
-        require(token.transfer(target, (gasleft()) * gasPrice), "Refund unused gas");
+        require(token.transfer(target, (gasleft()) * gasPrice), "Could not refund unused gas");
+    } 
+    
+    function executeTrusted(address target, bytes calldata functionData) external {
+        // 9k are for the token transfers + 21k base + data (8 bytes method + 32 bytes address + data)
+        // We will use 14 as the gas price per data byte, to avoid overcharging too much
+        uint256 additionalGas = 30000 + (40 + functionData.length) * 14;
+        uint256 gasPrice = tx.gasprice + fee;
+        uint256 gasStart = gasleft();
+        // The method id is appended by the contract to avoid that another method is called
+        bytes memory data = abi.encodePacked(method, functionData);
+        bool success;
+        // Assembly reduced the costs by 400 gas
+        assembly {
+            success := call(sub(gas(), 12000), target, 0, add(data, 0x20), mload(data), 0, 0)
+        }
+        require(success, "Could not successfully call target");
+        require(token.transferFrom(target, address(this), (gasStart + additionalGas - gasleft()) * gasPrice), "Could not pay gas");
     } 
 }

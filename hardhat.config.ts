@@ -50,6 +50,7 @@ export default {
     compilers: [
       { version: "0.8.1" },
       { version: "0.6.12" },
+      { version: "0.4.18" },
     ]
   },
   networks: {
@@ -67,7 +68,7 @@ export default {
     },
   },
   namedAccounts: {
-    deployer: 0,
+    deployer: 0
   },
   mocha: {
     timeout: 2000000,
