@@ -18,7 +18,7 @@ const configs: Record<string, Config> = {
     },
     rinkeby: {
         token: "0xc778417E063141139Fce010982780140Aa0cD5Ab",
-        fee: "1000000000", // ! GWei
+        fee: "1000000000", // 1 GWei
     }
 }
 

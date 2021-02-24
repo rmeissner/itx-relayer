@@ -1,11 +1,11 @@
-import hre, { deployments, waffle } from "hardhat";
+import hre, { deployments, ethers, waffle } from "hardhat";
 import "@nomiclabs/hardhat-ethers";
 import { _TypedDataEncoder } from "@ethersproject/hash";
 import { getConfig } from "../src/config/refunder_config";
 import { logGas } from "./utils";
 import { parseEther } from "ethers/lib/utils";
 
-describe("Refunder", async () => {
+describe.only("Benchmark", async () => {
 
     const [user1] = waffle.provider.getWallets();
 
@@ -22,8 +22,8 @@ describe("Refunder", async () => {
     })
 
     // TODO: move to separe test suite
-    describe("Benchmark", async () => {
-        it("noop transaction", async () => {
+    describe("Noop transfer", async () => {
+        it("Limited allowance", async () => {
             const { refunder, executor, token } = await setupTest();
 
             await user1.sendTransaction({ to: token.address, value: parseEther("10") })
@@ -39,12 +39,48 @@ describe("Refunder", async () => {
             await logGas("Execute via relayer", refunder.execute(executor.address, relayData))
         })
 
-        it("ether transfer", async () => {
+        it("Unimited allowance", async () => {
+            const { refunder, executor, token } = await setupTest();
+
+            await user1.sendTransaction({ to: token.address, value: parseEther("10") })
+            const approveData = token.interface.encodeFunctionData("approve", [refunder.address, ethers.constants.MaxUint256])
+            await executor.exec(token.address, 0, approveData)
+            await token.transfer(refunder.address, 10)
+            await token.transfer(executor.address, parseEther("1"))
+
+            await logGas("Execute directly", executor.exec(executor.address, 0, "0x"))
+
+            const relayData = "0x" + executor.interface.encodeFunctionData("exec", [executor.address, 0, "0x"]).slice(10)
+            await logGas("Execute via relayer trusted", refunder.executeTrusted(executor.address, relayData))
+            await logGas("Execute via relayer", refunder.execute(executor.address, relayData))
+        })
+    })
+
+    describe("Ether transfer", async () => {
+
+        it("Limited allowance", async () => {
             const { refunder, executor, token } = await setupTest();
 
             await user1.sendTransaction({ to: token.address, value: parseEther("10") })
             await user1.sendTransaction({ to: executor.address, value: parseEther("10") })
             const approveData = token.interface.encodeFunctionData("approve", [refunder.address, parseEther("1")])
+            await executor.exec(token.address, 0, approveData)
+            await token.transfer(refunder.address, 10)
+            await token.transfer(executor.address, parseEther("1"))
+
+            await logGas("Execute directly", executor.exec(user1.address, parseEther("1"), "0x"))
+
+            const relayData = "0x" + executor.interface.encodeFunctionData("exec", [user1.address, parseEther("1"), "0x"]).slice(10)
+            await logGas("Execute via relayer trusted", refunder.executeTrusted(executor.address, relayData))
+            await logGas("Execute via relayer", refunder.execute(executor.address, relayData))
+        })
+
+        it("Unimited allowance", async () => {
+            const { refunder, executor, token } = await setupTest();
+
+            await user1.sendTransaction({ to: token.address, value: parseEther("10") })
+            await user1.sendTransaction({ to: executor.address, value: parseEther("10") })
+            const approveData = token.interface.encodeFunctionData("approve", [refunder.address, ethers.constants.MaxUint256])
             await executor.exec(token.address, 0, approveData)
             await token.transfer(refunder.address, 10)
             await token.transfer(executor.address, parseEther("1"))
