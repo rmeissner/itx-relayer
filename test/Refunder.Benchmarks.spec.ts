@@ -1,7 +1,7 @@
 import hre, { deployments, waffle } from "hardhat";
 import "@nomiclabs/hardhat-ethers";
 import { _TypedDataEncoder } from "@ethersproject/hash";
-import { injectHardhatDefaults } from "../src/config/refunder_config";
+import { getConfig } from "../src/config/refunder_config";
 import { logGas } from "./utils";
 import { parseEther } from "ethers/lib/utils";
 
@@ -10,15 +10,14 @@ describe("Refunder", async () => {
     const [user1] = waffle.provider.getWallets();
 
     const setupTest = deployments.createFixture(async () => {
+        await deployments.fixture();
         const Executor = await hre.ethers.getContractFactory("TestExecutor");
         const executor = await Executor.deploy();
         const TestToken = await hre.ethers.getContractFactory("TestToken");
         const token = await TestToken.deploy();
-        injectHardhatDefaults({ token: token.address, method: executor.interface.getSighash("exec") })
-        await deployments.fixture();
-        const RefunderDeployment = await deployments.get("Refunder");
+        const config = getConfig()
         const Refunder = await hre.ethers.getContractFactory("Refunder");
-        const refunder = Refunder.attach(RefunderDeployment.address)
+        const refunder = await Refunder.deploy(token.address, user1.address, config.fee, executor.interface.getSighash("exec"))
         return { Executor, executor, token, refunder };
     })
 

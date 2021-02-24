@@ -2,23 +2,21 @@ import { expect } from "chai";
 import hre, { deployments, waffle } from "hardhat";
 import "@nomiclabs/hardhat-ethers";
 import { _TypedDataEncoder } from "@ethersproject/hash";
-import { injectHardhatDefaults } from "../src/config/refunder_config";
-import { logGas } from "./utils";
+import { getConfig } from "../src/config/refunder_config";
 
 describe("Refunder", async () => {
 
     const [user1] = waffle.provider.getWallets();
 
     const setupTest = deployments.createFixture(async () => {
+        await deployments.fixture();
         const Executor = await hre.ethers.getContractFactory("TestExecutor");
         const executor = await Executor.deploy();
         const Mock = await hre.ethers.getContractFactory("MockContract");
         const mock = await Mock.deploy();
-        injectHardhatDefaults({ token: mock.address, method: executor.interface.getSighash("exec") })
-        await deployments.fixture();
-        const RefunderDeployment = await deployments.get("Refunder");
+        const config = getConfig()
         const Refunder = await hre.ethers.getContractFactory("Refunder");
-        const refunder = Refunder.attach(RefunderDeployment.address)
+        const refunder = await Refunder.deploy(mock.address, user1.address, config.fee, executor.interface.getSighash("exec"))
         return { Executor, executor, mock, refunder };
     })
 
@@ -39,10 +37,9 @@ describe("Refunder", async () => {
 
         it("throws if called by non-owner", async () => {
             const { refunder, executor } = await setupTest();
-
             const calldata = refunder.interface.encodeFunctionData("changeOwner", [user1.address])
             await expect(
-                executor.exec(refunder.address, 0, calldata)
+                executor.exec(refunder.address, 0, calldata).then((tx:any) => { console.log({tx}); return tx})
             ).to.be.revertedWith("Not Authorized")
         })
     })

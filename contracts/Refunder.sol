@@ -36,9 +36,9 @@ contract Refunder {
     }
     
     function execute(address target, bytes calldata functionData) external {
-        // 9k are for the token transfers + 21k base + data (8 bytes method + 32 bytes address + data)
+        // 29k are for the token transfers/ approval changes + 21k base + data (8 bytes method + 32 bytes address + data)
         // We will use 14 as the gas price per data byte, to avoid overcharging too much
-        uint256 additionalGas = 30000 + (40 + functionData.length) * 14;
+        uint256 additionalGas = 50000 + (40 + functionData.length) * 14;
         uint256 gasPrice = tx.gasprice + fee;
         require(token.transferFrom(target, address(this), (gasleft() + additionalGas) * gasPrice), "Could not aquire tokens");
         // The method id is appended by the contract to avoid that another method is called
@@ -53,9 +53,9 @@ contract Refunder {
     } 
     
     function executeTrusted(address target, bytes calldata functionData) external {
-        // 9k are for the token transfers + 21k base + data (8 bytes method + 32 bytes address + data)
+        // 20k are for the token transfer/ approval changes + 21k base + data (8 bytes method + 32 bytes address + data)
         // We will use 14 as the gas price per data byte, to avoid overcharging too much
-        uint256 additionalGas = 30000 + (40 + functionData.length) * 14;
+        uint256 additionalGas = 41000 + (40 + functionData.length) * 14;
         uint256 gasPrice = tx.gasprice + fee;
         uint256 gasStart = gasleft();
         // The method id is appended by the contract to avoid that another method is called

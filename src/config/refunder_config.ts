@@ -22,10 +22,6 @@ const configs: Record<string, Config> = {
     }
 }
 
-export const injectHardhatDefaults = (config: Config) => {
-    configs["hardhat"] = config
-}
-
 export const getConfig = (network?: string): Config => {
     return { ...configs.default, ...configs[network || "hardhat"] }
 }
