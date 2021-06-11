@@ -1,11 +1,11 @@
-import hre, { deployments, ethers, waffle } from "hardhat";
+import hre, { deployments, waffle } from "hardhat";
 import "@nomiclabs/hardhat-ethers";
 import { _TypedDataEncoder } from "@ethersproject/hash";
 import { getConfig } from "../src/config/refunder_config";
 import { logGas } from "./utils";
-import { parseEther } from "ethers/lib/utils";
+import { utils } from "ethers";
 
-describe.only("Benchmark", async () => {
+describe("Benchmark", async () => {
 
     const [user1] = waffle.provider.getWallets();
 
@@ -22,8 +22,8 @@ describe.only("Benchmark", async () => {
     it("noop", async () => {
         const { gasTank, executor } = await setupTest();
 
-        await user1.sendTransaction({ to: executor.address, value: parseEther("10") })
-        await executor.exec(gasTank.address, parseEther("1"), "0x")
+        await user1.sendTransaction({ to: executor.address, value: utils.parseEther("10") })
+        await executor.exec(gasTank.address, utils.parseEther("1"), "0x")
 
         await logGas("Execute directly", executor.exec(executor.address, 0, "0x"))
 
@@ -34,12 +34,12 @@ describe.only("Benchmark", async () => {
     it("Ether transfer", async () => {
         const { gasTank, executor } = await setupTest();
 
-        await user1.sendTransaction({ to: executor.address, value: parseEther("10") })
-        await executor.exec(gasTank.address, parseEther("1"), "0x")
+        await user1.sendTransaction({ to: executor.address, value: utils.parseEther("10") })
+        await executor.exec(gasTank.address, utils.parseEther("1"), "0x")
 
-        await logGas("Execute directly", executor.exec(executor.address, parseEther("0.001"), "0x"))
+        await logGas("Execute directly", executor.exec(executor.address, utils.parseEther("0.001"), "0x"))
 
-        const relayData = "0x" + executor.interface.encodeFunctionData("exec", [user1.address, parseEther("0.001"), "0x"]).slice(10)
+        const relayData = "0x" + executor.interface.encodeFunctionData("exec", [user1.address, utils.parseEther("0.001"), "0x"]).slice(10)
         await logGas("Execute via gasTank", gasTank.execute(executor.address, relayData))
     })
 })
