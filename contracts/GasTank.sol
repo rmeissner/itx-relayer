@@ -2,9 +2,8 @@
 pragma solidity >0.7.0 <0.9.0;
 
 contract GasTank {
-
     uint128 private constant MAX_UINT128 = uint128(int128(-1));
-    
+
     address public owner;
     uint256 public immutable fee;
     bytes4 public immutable method;
@@ -15,13 +14,17 @@ contract GasTank {
     }
 
     mapping(address => Account) public accounts;
-    
-    constructor(address _owner, uint256 _fee, bytes4 _method) {
+
+    constructor(
+        address _owner,
+        uint256 _fee,
+        bytes4 _method
+    ) {
         owner = _owner;
         fee = _fee;
         method = _method;
     }
-    
+
     function changeOwner(address newOwner) external {
         require(msg.sender == owner, "Not Authorized");
         owner = newOwner;
@@ -30,11 +33,14 @@ contract GasTank {
     /**
      * Method to unstuck tokens from this contract. We disallow to specify value else balances could be compromised
      */
-    function unstuck(address payable to, bytes calldata data) external returns (bool success, bytes memory response) {
+    function unstuck(address payable to, bytes calldata data)
+        external
+        returns (bool success, bytes memory response)
+    {
         require(msg.sender == owner, "Not Authorized");
         (success, response) = to.call(data);
     }
-    
+
     function payout(address[] calldata accs) external {
         require(msg.sender == owner, "Not Authorized");
         uint256 amount = 0;
@@ -47,7 +53,7 @@ contract GasTank {
             accounts[accs[i]] = current;
         }
         require(amount > 0, "Nothing to payout");
-        (bool success,) = owner.call{ value: amount }("");
+        (bool success, ) = owner.call{value: amount}("");
         require(success, "Could not payout funds");
     }
 
@@ -57,7 +63,10 @@ contract GasTank {
 
     function deposit(address receiver) public payable {
         uint128 depositAmount = uint128(msg.value);
-        require(depositAmount == msg.value, "Can only deposit a max of 2**128 - 1");
+        require(
+            depositAmount == msg.value,
+            "Can only deposit a max of 2**128 - 1"
+        );
         Account memory userAccount = accounts[receiver];
         userAccount.deposit += depositAmount;
         require(userAccount.deposit >= depositAmount, "Adding deposit failed");
@@ -72,10 +81,10 @@ contract GasTank {
         userAccount.used = 0;
         userAccount.deposit = 0;
         accounts[msg.sender] = userAccount;
-        (bool success,) = owner.call{ value: amount }("");
+        (bool success, ) = owner.call{value: amount}("");
         require(success, "Could not withdraw funds");
     }
-    
+
     function execute(address target, bytes calldata functionData) external {
         Account memory userAccount = accounts[target];
         // Some additional gas is charged for submitting the tx on-chain
@@ -90,11 +99,21 @@ contract GasTank {
         bytes memory data = abi.encodePacked(method, functionData);
         bool success;
         // Assembly reduced the costs by 400 gas
+        // solhint-disable-next-line no-inline-assembly
         assembly {
-            success := call(sub(gas(), 12000), target, 0, add(data, 0x20), mload(data), 0, 0)
+            success := call(
+                sub(gas(), 12000),
+                target,
+                0,
+                add(data, 0x20),
+                mload(data),
+                0,
+                0
+            )
         }
         // Forward error message
-        if(!success) {
+        if (!success) {
+            // solhint-disable-next-line no-inline-assembly
             assembly {
                 returndatacopy(0, 0, returndatasize())
                 revert(0, returndatasize())
@@ -103,7 +122,10 @@ contract GasTank {
         uint256 totalGas = startGas - gasleft() + additionalGas;
         require(totalGas > additionalGas, "Gas overflow");
         uint256 chargedAmount = totalGas * gasPrice;
-        require(chargedAmount >= totalGas && chargedAmount <= MAX_UINT128, "Amount overflow");
+        require(
+            chargedAmount >= totalGas && chargedAmount <= MAX_UINT128,
+            "Amount overflow"
+        );
         // We check the used agains the original state to avoid the reentry protection state
         uint128 newUsed = userAccount.used + uint128(chargedAmount);
         require(newUsed > userAccount.used, "Cannot calculate new used");
