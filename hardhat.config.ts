@@ -20,6 +20,7 @@ const { INFURA_KEY, MNEMONIC, MY_ETHERSCAN_API_KEY, PK } = process.env;
 
 import "./src/tasks/setup";
 import "./src/tasks/relaying";
+import { BigNumber } from "@ethersproject/bignumber";
 
 const DEFAULT_MNEMONIC =
   "candy maple cake sugar pudding cream honey rich smooth crumble sweet treat";
@@ -54,6 +55,11 @@ export default {
     ]
   },
   networks: {
+    hardhat: {
+      accounts: {
+        accountsBalance: BigNumber.from(2).pow(196).toString()
+      }
+    },
     mainnet: {
       ...sharedNetworkConfig,
       url: `https://mainnet.infura.io/v3/${INFURA_KEY}`,
