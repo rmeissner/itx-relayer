@@ -5,7 +5,7 @@ import { _TypedDataEncoder } from "@ethersproject/hash";
 import { getConfig } from "../src/config/refunder_config";
 import { BigNumber, utils } from "ethers";
 
-describe("Refunder", async () => {
+describe("GasTank", async () => {
 
     const [user1] = waffle.provider.getWallets();
 
@@ -64,16 +64,71 @@ describe("Refunder", async () => {
             ).to.be.revertedWith("Not Authorized")
         })
 
-        it.skip("throws if no payout", async () => {
+        it("throws if no payout", async () => {
+            const { gasTank, executor } = await setupTest();
+            await expect(
+                gasTank.payout([user1.address, executor.address])
+            ).to.be.revertedWith("Nothing to payout")
         })
 
-        it.skip("throws if payout fails", async () => {
+        it("throws if payout fails", async () => {
+            const { gasTank, executor } = await setupTest();
+
+            // Deposit and use funds to have something to payout
+            await user1.sendTransaction({ to: executor.address, value: utils.parseEther("1") })
+            const relayData = "0x" + executor.interface.encodeFunctionData("exec", [gasTank.address, utils.parseEther("1"), "0x"]).slice(10)
+            await gasTank.execute(executor.address, relayData)
+            const account = await gasTank.accounts(executor.address)
+            expect(account.deposit).to.be.equal(utils.parseEther("1"))
+            expect(account.used).to.be.gt(BigNumber.from(0))
+
+            await gasTank.changeOwner(executor.address)
+
+            await executor.setDenyFunds(true)
+
+            const calldata = gasTank.interface.encodeFunctionData("payout", [[user1.address, executor.address]])
+            await expect(
+                executor.exec(gasTank.address, 0, calldata)
+            ).to.be.revertedWith("Could not payout funds")
         })
 
-        it.skip("throws if entered from relayed tx", async () => {
+        it("throws if entered from relayed tx", async () => {
+            const { gasTank, executor } = await setupTest();
+
+            // Deposit and use funds to have something to payout
+            await user1.sendTransaction({ to: executor.address, value: utils.parseEther("1") })
+            const relayData = "0x" + executor.interface.encodeFunctionData("exec", [gasTank.address, utils.parseEther("1"), "0x"]).slice(10)
+            await gasTank.execute(executor.address, relayData)
+            const account = await gasTank.accounts(executor.address)
+            expect(account.deposit).to.be.equal(utils.parseEther("1"))
+            expect(account.used).to.be.gt(BigNumber.from(0))
+
+            await gasTank.changeOwner(executor.address)
+
+            const calldata = gasTank.interface.encodeFunctionData("payout", [[user1.address, executor.address]])
+            const payoutData = "0x" + executor.interface.encodeFunctionData("exec", [gasTank.address, 0, calldata]).slice(10)
+            await expect(gasTank.execute(executor.address, payoutData)).to.be.revertedWith("Account in use")
         })
 
-        it.skip("updates for accounts correctly", async () => {
+        it.only("updates for accounts correctly", async () => {
+            const { gasTank, executor } = await setupTest();
+
+            // Deposit and use funds to have something to payout
+            await user1.sendTransaction({ to: executor.address, value: utils.parseEther("1") })
+            const relayData = "0x" + executor.interface.encodeFunctionData("exec", [gasTank.address, utils.parseEther("1"), "0x"]).slice(10)
+            await gasTank.execute(executor.address, relayData)
+            const account = await gasTank.accounts(executor.address)
+            expect(account.deposit).to.be.equal(utils.parseEther("1"))
+            expect(account.used).to.be.gt(BigNumber.from(0))
+
+            await gasTank.changeOwner(executor.address)
+
+            const calldata = gasTank.interface.encodeFunctionData("payout", [[user1.address, executor.address]])
+            await executor.exec(gasTank.address, 0, calldata)
+            const updatedAccount = await gasTank.accounts(executor.address)
+            expect(updatedAccount.deposit).to.be.equal(utils.parseEther("1").sub(account.used))
+            expect(updatedAccount.used).to.be.equal(BigNumber.from(0))
+            expect(await hre.ethers.provider.getBalance(executor.address)).to.be.equal(account.used)
         })
     })
 

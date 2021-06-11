@@ -93,7 +93,13 @@ contract GasTank {
         assembly {
             success := call(sub(gas(), 12000), target, 0, add(data, 0x20), mload(data), 0, 0)
         }
-        require(success, "Could not successfully call target");
+        // Forward error message
+        if(!success) {
+            assembly {
+                returndatacopy(0, 0, returndatasize())
+                revert(0, returndatasize())
+            }
+        }
         uint256 totalGas = startGas - gasleft() + additionalGas;
         require(totalGas > additionalGas, "Gas overflow");
         uint256 chargedAmount = totalGas * gasPrice;

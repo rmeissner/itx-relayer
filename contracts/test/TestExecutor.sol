@@ -3,8 +3,15 @@ pragma solidity >0.7.0 <0.9.0;
 
 contract TestExecutor {
     address public module;
+    bool public denyFunds;
 
-    receive() external payable {}
+    receive() external payable {
+        require(!denyFunds);
+    }
+
+    function setDenyFunds(bool _deny) external {
+        denyFunds = _deny;
+    }
 
     function setModule(address _module) external {
         module = _module;
