@@ -110,7 +110,7 @@ describe("GasTank", async () => {
             await expect(gasTank.execute(executor.address, payoutData)).to.be.revertedWith("Account in use")
         })
 
-        it.only("updates for accounts correctly", async () => {
+        it("updates for accounts correctly", async () => {
             const { gasTank, executor } = await setupTest();
 
             // Deposit and use funds to have something to payout
